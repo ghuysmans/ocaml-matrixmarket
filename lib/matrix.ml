@@ -209,6 +209,121 @@ let%test_module _ = (module struct
 end)
 
 
+let parse_coordinate : type a. string -> a field -> int * int * a = fun s -> function
+  | Complex -> Scanf.sscanf s "%d %d %f %f" (fun i j re im -> i, j, Complex.{re; im})
+  | Integer -> Scanf.sscanf s "%d %d %d" (fun i j x -> i, j, x)
+  | Real -> Scanf.sscanf s "%d %d %f" (fun i j x -> i, j, x)
+  | Pattern -> Scanf.sscanf s "%d %d %d" (fun i j x -> i, j,
+    if x = 0 then false else if x = 1 then true else failwith "invalid bool")
+
+(* FIXME compose scanf? *)
+let parse_value : type a. string -> a field -> a = fun s -> function
+  | Complex -> Scanf.sscanf s "%f %f" (fun re im -> Complex.{re; im})
+  | Integer -> Scanf.sscanf s "%d" (fun x -> x)
+  | Real -> Scanf.sscanf s "%f" (fun x -> x)
+  | Pattern -> Scanf.sscanf s "%d" (function
+    | 0 -> false
+    | 1 -> true
+    | _ -> failwith "invalid bool")
+
+let expected_array_length : type a. int -> int -> a symmetry -> int = fun r c -> function
+  | General -> r * c
+  | _ when r <> c -> failwith "symmetric non-square matrix"
+  | Skew_symmetric -> r * (r - 1) / 2
+  | _ -> r * (r + 1) / 2
+
+type k = K : ('typ, 'data) kind -> k
+
+(*
+FIXME I'd like to encode this, maybe polymorphic variants would make it shorter?
+[coordinate|array] [real|integer|complex] [general|symmetric|skew-symmetric]
+[coordinate|array] complex Hermitian
+coordinate pattern [general|symmetric]
+*)
+let parse_kind l =
+  Scanf.sscanf l "%%%%MatrixMarket matrix %s %s %s" (fun f t s ->
+    let lo = String.lowercase_ascii in
+    match lo f, lo t, lo s with
+    | "coordinate", "real", "general" ->
+      K {format = Coordinate; field = Real; symmetry = General}
+    | "coordinate", "real", "symmetric" ->
+      K {format = Coordinate; field = Real; symmetry = Symmetric}
+    | "coordinate", "real", "skew-symmetric" ->
+      K {format = Coordinate; field = Real; symmetry = Skew_symmetric}
+    | "coordinate", "integer", "general" ->
+      K {format = Coordinate; field = Integer; symmetry = General}
+    | "coordinate", "integer", "symmetric" ->
+      K {format = Coordinate; field = Integer; symmetry = Symmetric}
+    | "coordinate", "integer", "skew-symmetric" ->
+      K {format = Coordinate; field = Integer; symmetry = Skew_symmetric}
+    | "coordinate", "complex", "general" ->
+      K {format = Coordinate; field = Complex; symmetry = General}
+    | "coordinate", "complex", "symmetric" ->
+      K {format = Coordinate; field = Complex; symmetry = Symmetric}
+    | "coordinate", "complex", "skew-symmetric" ->
+      K {format = Coordinate; field = Complex; symmetry = Skew_symmetric}
+    | "array", "real", "general" ->
+      K {format = Array; field = Real; symmetry = General}
+    | "array", "real", "symmetric" ->
+      K {format = Array; field = Real; symmetry = Symmetric}
+    | "array", "real", "skew-symmetric" ->
+      K {format = Array; field = Real; symmetry = Skew_symmetric}
+    | "array", "integer", "general" ->
+      K {format = Array; field = Integer; symmetry = General}
+    | "array", "integer", "symmetric" ->
+      K {format = Array; field = Integer; symmetry = Symmetric}
+    | "array", "integer", "skew-symmetric" ->
+      K {format = Array; field = Integer; symmetry = Skew_symmetric}
+    | "array", "complex", "general" ->
+      K {format = Array; field = Complex; symmetry = General}
+    | "array", "complex", "symmetric" ->
+      K {format = Array; field = Complex; symmetry = Symmetric}
+    | "array", "complex", "skew-symmetric" ->
+      K {format = Array; field = Complex; symmetry = Skew_symmetric}
+    | "coordinate", "complex", "hermitian" ->
+      K {format = Coordinate; field = Complex; symmetry = Hermitian}
+    | "array", "complex", "hermitian" ->
+      K {format = Array; field = Complex; symmetry = Hermitian}
+    | "coordinate", "pattern", "general" ->
+      K {format = Coordinate; field = Pattern; symmetry = General}
+    | "coordinate", "pattern", "symmetric" ->
+      K {format = Coordinate; field = Pattern; symmetry = Symmetric}
+    | _ ->
+      failwith @@ Printf.sprintf "unsupported format: %s %s %s" f t s
+  )
+
 type w = W : ('typ, 'data) description -> w
 
-(* TODO parse files *)
+let parse ch =
+  let K kind = parse_kind (input_line ch) in
+  let rec collect_comments comments =
+    let l = input_line ch in
+    if l = "" then
+      collect_comments comments
+    else if String.get l 0 = '%' then
+      collect_comments (String.(sub l 1 (length l - 1)) :: comments)
+    else
+      List.rev comments, l
+  in
+  let comments, l = collect_comments [] in
+  match kind.format with
+  | Coordinate ->
+    let rows, columns, n_entries = Scanf.sscanf l "%d %d %d" (fun x y z -> x, y, z) in
+    let rec read data = function
+      | 0 -> W {kind; rows; columns; data}, comments
+      | n ->
+        let l = input_line ch in
+        if l = "" then
+          read data n
+        else
+          read (parse_coordinate l kind.field :: data) (n - 1)
+    in
+    read [] n_entries
+  | Array ->
+    let rows, columns = Scanf.sscanf l "%d %d" (fun x y -> x, y) in
+    let data =
+      Array.init (expected_array_length rows columns kind.symmetry) (fun _ ->
+        parse_value (input_line ch) kind.field
+      )
+    in
+    W {kind; rows; columns; data}, comments
