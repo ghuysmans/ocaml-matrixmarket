@@ -94,6 +94,99 @@ end)
 
 let to_array = A.build
 
+let%test_module _ = (module struct
+  let ex1_d = {
+    format = Coordinate;
+    typ = Real;
+    structure = General;
+    rows = 5;
+    columns = 5;
+    data = [
+      1, 1, 1.0;
+      2, 2, 10.5;
+      4, 2, 250.5;
+      3, 3, 0.015;
+      1, 4, 6.0;
+      4, 4, -280.0;
+      4, 5, 33.32;
+      5, 5, 12.0;
+    ];
+  }
+
+  let ex1 = [|
+    [| 1.; 0.; 0.; 6.; 0. |];
+    [| 0.; 10.5; 0.; 0.; 0. |];
+    [| 0.; 0.; 0.015; 0.; 0. |];
+    [| 0.; 250.5; 0.; -280.; 33.32 |];
+    [| 0.; 0.; 0.; 0.; 12. |];
+  |]
+
+  let%test _ = to_array ex1_d = ex1
+
+  let c re im = Complex.{re; im}
+
+  let ex2_d = {
+    format = Coordinate;
+    typ = Complex;
+    structure = Hermitian;
+    rows = 5;
+    columns = 5;
+    data = [
+      1, 1, c 1.0 0.;
+      2, 2, c 10.5 0.;
+      4, 2, c 250.5 22.22;
+      3, 3, c 1.5e-2 0.;
+      4, 4, c (-2.8e2) 0.;
+      5, 5, c 12. 0.;
+      5, 4, c 0. 33.32;
+    ];
+  }
+
+  let r re = Complex.{re; im = 0.}
+  let i im = Complex.{re = 0.; im}
+
+  let ex2 = [|
+    [| r 1.; r 0.; r 0.; r 0.; r 0. |];
+    [| r 0.; r 10.5; r 0.; c 250.5 (-22.22); r 0. |];
+    [| r 0.; r 0.; r 0.015; r 0.; r 0. |];
+    [| r 0.; c 250.5 22.22; r 0.; r (-280.); i (-33.32) |];
+    [| r 0.; r 0.; r 0.; i 33.32; r 12. |];
+  |]
+
+  let%test _ = to_array ex2_d = ex2
+
+  let ex3_d = {
+    format = Array;
+    typ = Real;
+    structure = General;
+    rows = 4;
+    columns = 3;
+    data = [|
+      1.0;
+      2.0;
+      3.0;
+      4.0;
+      5.0;
+      6.0;
+      7.0;
+      8.0;
+      9.0;
+      10.0;
+      11.0;
+      12.0;
+    |];
+  }
+
+  let ex3 = [|
+    [| 1.0; 5.0; 9.0 |];
+    [| 2.0; 6.0; 10.0 |];
+    [| 3.0; 7.0; 11.0 |];
+    [| 4.0; 8.0; 12.0 |];
+  |]
+
+  let%test _ = to_array ex3_d = ex3
+end)
+
 
 type w = W : ('typ, 'data) description -> w
 

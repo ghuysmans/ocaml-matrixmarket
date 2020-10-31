@@ -1,1 +1,4 @@
-(library (name matrixmarket))
+(library
+ (name matrixmarket)
+ (inline_tests)
+ (preprocess (pps ppx_inline_test)))
