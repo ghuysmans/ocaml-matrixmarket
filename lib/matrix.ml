@@ -301,7 +301,7 @@ type w = W : ('typ, 'data) description -> w
 let parse ch =
   let K kind = parse_kind (input_line ch) in
   let rec collect_comments comments =
-    let l = input_line ch in
+    let l = String.trim (input_line ch) in
     if l = "" then
       collect_comments comments
     else if String.get l 0 = '%' then
@@ -316,7 +316,7 @@ let parse ch =
     let rec read data = function
       | 0 -> W {kind; rows; columns; data}, comments
       | n ->
-        let l = input_line ch in
+        let l = String.trim (input_line ch) in
         if l = "" then
           read data n
         else
@@ -327,7 +327,8 @@ let parse ch =
     let rows, columns = Scanf.sscanf l "%d %d" (fun x y -> x, y) in
     let data =
       Array.init (expected_array_length rows columns kind.symmetry) (fun _ ->
-        parse_value (input_line ch) kind.field
+        let l = String.trim (input_line ch) in
+        parse_value l kind.field
       )
     in
     W {kind; rows; columns; data}, comments
