@@ -69,7 +69,21 @@ module Make (M : S) = struct
       t.data |> List.iter (fun (i, j, x) -> put i j x);
       m
     | Array ->
-      failwith "TODO"
+      match t.structure with
+      | General ->
+        t.data |> Array.iteri (fun index x ->
+          M.set m (index mod t.rows) (index / t.rows) x
+        );
+        m
+      | _ ->
+        let pos = ref 0 in
+        for j = 1 to t.columns do
+          for i = j to t.rows do
+            M.set m i j t.data.(!pos);
+            incr pos
+          done
+        done;
+        m
 end
 
 module A = Make (struct
