@@ -72,7 +72,7 @@ module Make (M : S) = struct
       match t.structure with
       | General ->
         t.data |> Array.iteri (fun index x ->
-          M.set m (index mod t.rows) (index / t.rows) x
+          M.set m (index mod t.rows + 1) (index / t.rows + 1) x
         );
         m
       | _ ->
