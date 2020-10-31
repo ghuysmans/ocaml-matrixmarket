@@ -8,6 +8,14 @@ type 'a field =
   | Pattern : bool field
   | Real : float field
 
+let string_of_value : type a. a field -> a -> string = function
+  | Complex -> fun Complex.{re; im} -> Printf.sprintf "%f + %fi" re im
+  | Integer -> string_of_int
+  | Real -> string_of_float
+  | Pattern -> function
+    | false -> " "
+    | true -> "*"
+
 type 'typ symmetry =
   | General : 'typ symmetry
   | Symmetric : 'typ symmetry
