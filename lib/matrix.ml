@@ -78,8 +78,8 @@ module Make (M : S) = struct
       | _ ->
         let pos = ref 0 in
         for j = 1 to t.columns do
-          for i = j to t.rows do
-            M.set m i j t.data.(!pos);
+          for i = j + if t.structure = Skew_symmetric then 1 else 0 to t.rows do
+            put i j t.data.(!pos);
             incr pos
           done
         done;
@@ -185,6 +185,27 @@ let%test_module _ = (module struct
   |]
 
   let%test _ = to_array ex3_d = ex3
+
+  let ext3_d = {
+    format = Array;
+    typ = Integer;
+    structure = Skew_symmetric;
+    rows = 3;
+    columns = 3;
+    data = [|
+      1;
+      2;
+      3;
+    |];
+  }
+
+  let ext3 = [|
+    [| 0; -1; -2 |];
+    [| 1; 0; -3 |];
+    [| 2; 3; 0 |];
+  |]
+
+  let%test _ = to_array ext3_d = ext3
 end)
 
 
