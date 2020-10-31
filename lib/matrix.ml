@@ -66,11 +66,7 @@ module Make (M : S) = struct
     in
     match t.format with
     | Coordinate ->
-      t.data |> List.iter (fun (row, col, x) ->
-        let i = row - 1 in
-        let j = col - 1 in
-        put i j x
-      );
+      t.data |> List.iter (fun (i, j, x) -> put i j x);
       m
     | Array ->
       failwith "TODO"
@@ -79,7 +75,7 @@ end
 module A = Make (struct
   type 'a t = 'a array array
   let make = Array.make_matrix
-  let set t i j x = t.(i).(j) <- x
+  let set t i j x = t.(i - 1).(j - 1) <- x
 end)
 
 let to_array = A.build
