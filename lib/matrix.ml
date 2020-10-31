@@ -14,10 +14,14 @@ type 'typ structure =
   | Hermitian : Complex.t structure
   | Skew_symmetric : 'typ structure
 
-type ('typ, 'data) description = {
+type ('typ, 'data) kind = {
   format: ('typ, 'data) format;
   typ: 'typ typ;
   structure: 'typ structure;
+}
+
+type ('typ, 'data) description = {
+  kind: ('typ, 'data) kind;
   rows: int;
   columns: int;
   data: 'data;
@@ -55,21 +59,21 @@ end
 
 module Make (M : S) = struct
   let build : type typ data. (typ, data) description -> typ M.t = fun t ->
-    let m = M.make t.rows t.columns (zero t.typ) in
+    let m = M.make t.rows t.columns (zero t.kind.typ) in
     let put i j x =
       M.set m i j x;
-      match t.structure with
+      match t.kind.structure with
       | General -> ()
       | Hermitian -> M.set m j i (Complex.conj x)
       | Symmetric -> M.set m j i x
-      | Skew_symmetric -> M.set m j i (neg t.typ x)
+      | Skew_symmetric -> M.set m j i (neg t.kind.typ x)
     in
-    match t.format with
+    match t.kind.format with
     | Coordinate ->
       t.data |> List.iter (fun (i, j, x) -> put i j x);
       m
     | Array ->
-      match t.structure with
+      match t.kind.structure with
       | General ->
         t.data |> Array.iteri (fun index x ->
           M.set m (index mod t.rows + 1) (index / t.rows + 1) x
@@ -78,7 +82,7 @@ module Make (M : S) = struct
       | _ ->
         let pos = ref 0 in
         for j = 1 to t.columns do
-          for i = j + if t.structure = Skew_symmetric then 1 else 0 to t.rows do
+          for i = j + if t.kind.structure = Skew_symmetric then 1 else 0 to t.rows do
             put i j t.data.(!pos);
             incr pos
           done
@@ -96,9 +100,11 @@ let to_array = A.build
 
 let%test_module _ = (module struct
   let ex1_d = {
-    format = Coordinate;
-    typ = Real;
-    structure = General;
+    kind = {
+      format = Coordinate;
+      typ = Real;
+      structure = General;
+    };
     rows = 5;
     columns = 5;
     data = [
@@ -126,9 +132,11 @@ let%test_module _ = (module struct
   let c re im = Complex.{re; im}
 
   let ex2_d = {
-    format = Coordinate;
-    typ = Complex;
-    structure = Hermitian;
+    kind = {
+      format = Coordinate;
+      typ = Complex;
+      structure = Hermitian;
+    };
     rows = 5;
     columns = 5;
     data = [
@@ -156,9 +164,11 @@ let%test_module _ = (module struct
   let%test _ = to_array ex2_d = ex2
 
   let ex3_d = {
-    format = Array;
-    typ = Real;
-    structure = General;
+    kind = {
+      format = Array;
+      typ = Real;
+      structure = General;
+    };
     rows = 4;
     columns = 3;
     data = [|
@@ -187,9 +197,11 @@ let%test_module _ = (module struct
   let%test _ = to_array ex3_d = ex3
 
   let ext3_d = {
-    format = Array;
-    typ = Integer;
-    structure = Skew_symmetric;
+    kind = {
+      format = Array;
+      typ = Integer;
+      structure = Skew_symmetric;
+    };
     rows = 3;
     columns = 3;
     data = [|
