@@ -2,22 +2,22 @@ type ('typ, 'data) format =
   | Coordinate : ('typ, (int * int * 'typ) list) format
   | Array : ('typ, 'typ array) format
 
-type 'a typ =
-  | Complex : Complex.t typ
-  | Integer : int typ
-  | Pattern : bool typ
-  | Real : float typ
+type 'a field =
+  | Complex : Complex.t field
+  | Integer : int field
+  | Pattern : bool field
+  | Real : float field
 
-type 'typ structure =
-  | General : 'typ structure
-  | Symmetric : 'typ structure
-  | Hermitian : Complex.t structure
-  | Skew_symmetric : 'typ structure
+type 'typ symmetry =
+  | General : 'typ symmetry
+  | Symmetric : 'typ symmetry
+  | Hermitian : Complex.t symmetry
+  | Skew_symmetric : 'typ symmetry
 
 type ('typ, 'data) kind = {
   format: ('typ, 'data) format;
-  typ: 'typ typ;
-  structure: 'typ structure;
+  field: 'typ field;
+  symmetry: 'typ symmetry;
 }
 
 type ('typ, 'data) description = {
@@ -27,29 +27,17 @@ type ('typ, 'data) description = {
   data: 'data;
 }
 
-let zero : type a. a typ -> a = function
+let zero : type a. a field -> a = function
   | Complex -> Complex.zero
   | Integer -> 0
   | Pattern -> false
   | Real -> 0.
 
-let neg : type a. a typ -> a -> a = function
+let neg : type a. a field -> a -> a = function
   | Complex -> Complex.neg
   | Integer -> (~-)
   | Pattern -> (not)
   | Real -> (~-.)
-
-let value_of_string : type a. a typ -> string -> a = function
-  | Complex -> failwith "TODO"
-  | Integer -> int_of_string
-  | Real -> float_of_string
-  | Pattern -> fun s ->
-    if s = "0" then
-      false
-    else if s = "1" then
-      true
-    else
-      failwith "invalid bool representation"
 
 module type S = sig
   type 'a t
@@ -59,21 +47,21 @@ end
 
 module Make (M : S) = struct
   let build : type typ data. (typ, data) description -> typ M.t = fun t ->
-    let m = M.make t.rows t.columns (zero t.kind.typ) in
+    let m = M.make t.rows t.columns (zero t.kind.field) in
     let put i j x =
       M.set m i j x;
-      match t.kind.structure with
+      match t.kind.symmetry with
       | General -> ()
       | Hermitian -> M.set m j i (Complex.conj x)
       | Symmetric -> M.set m j i x
-      | Skew_symmetric -> M.set m j i (neg t.kind.typ x)
+      | Skew_symmetric -> M.set m j i (neg t.kind.field x)
     in
     match t.kind.format with
     | Coordinate ->
       t.data |> List.iter (fun (i, j, x) -> put i j x);
       m
     | Array ->
-      match t.kind.structure with
+      match t.kind.symmetry with
       | General ->
         t.data |> Array.iteri (fun index x ->
           M.set m (index mod t.rows + 1) (index / t.rows + 1) x
@@ -82,7 +70,7 @@ module Make (M : S) = struct
       | _ ->
         let pos = ref 0 in
         for j = 1 to t.columns do
-          for i = j + if t.kind.structure = Skew_symmetric then 1 else 0 to t.rows do
+          for i = j + if t.kind.symmetry = Skew_symmetric then 1 else 0 to t.rows do
             put i j t.data.(!pos);
             incr pos
           done
@@ -102,8 +90,8 @@ let%test_module _ = (module struct
   let ex1_d = {
     kind = {
       format = Coordinate;
-      typ = Real;
-      structure = General;
+      field = Real;
+      symmetry = General;
     };
     rows = 5;
     columns = 5;
@@ -134,8 +122,8 @@ let%test_module _ = (module struct
   let ex2_d = {
     kind = {
       format = Coordinate;
-      typ = Complex;
-      structure = Hermitian;
+      field = Complex;
+      symmetry = Hermitian;
     };
     rows = 5;
     columns = 5;
@@ -166,8 +154,8 @@ let%test_module _ = (module struct
   let ex3_d = {
     kind = {
       format = Array;
-      typ = Real;
-      structure = General;
+      field = Real;
+      symmetry = General;
     };
     rows = 4;
     columns = 3;
@@ -199,8 +187,8 @@ let%test_module _ = (module struct
   let ext3_d = {
     kind = {
       format = Array;
-      typ = Integer;
-      structure = Skew_symmetric;
+      field = Integer;
+      symmetry = Skew_symmetric;
     };
     rows = 3;
     columns = 3;
