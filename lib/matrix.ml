@@ -213,18 +213,14 @@ let parse_coordinate : type a. string -> a field -> int * int * a = fun s -> fun
   | Complex -> Scanf.sscanf s "%d %d %f %f" (fun i j re im -> i, j, Complex.{re; im})
   | Integer -> Scanf.sscanf s "%d %d %d" (fun i j x -> i, j, x)
   | Real -> Scanf.sscanf s "%d %d %f" (fun i j x -> i, j, x)
-  | Pattern -> Scanf.sscanf s "%d %d %d" (fun i j x -> i, j,
-    if x = 0 then false else if x = 1 then true else failwith "invalid bool")
+  | Pattern -> Scanf.sscanf s "%d %d" (fun i j -> i, j, true)
 
 (* FIXME compose scanf? *)
 let parse_value : type a. string -> a field -> a = fun s -> function
   | Complex -> Scanf.sscanf s "%f %f" (fun re im -> Complex.{re; im})
   | Integer -> Scanf.sscanf s "%d" (fun x -> x)
   | Real -> Scanf.sscanf s "%f" (fun x -> x)
-  | Pattern -> Scanf.sscanf s "%d" (function
-    | 0 -> false
-    | 1 -> true
-    | _ -> failwith "invalid bool")
+  | Pattern -> failwith "unsupported pattern array"
 
 let expected_array_length : type a. int -> int -> a symmetry -> int = fun r c -> function
   | General -> r * c
