@@ -378,3 +378,24 @@ let output_dense kind get rows columns comments ppf m =
     done
   done;
   Format.fprintf ppf "@]"
+
+let output_sparse_s field rows columns comments expected ppf s =
+  Format.fprintf ppf "@[<v>%%%%MatrixMarket matrix coordinate %a %a"
+    pp_field field
+    pp_symmetry General;
+  comments |> List.iter (fun c -> Format.fprintf ppf "@;%%%s" c);
+  Format.fprintf ppf "@;%d %d %d" rows columns expected;
+  let ct = ref 0 in
+  s |> Stream.iter (fun (i, j, x) ->
+    incr ct;
+    if !ct <= expected then
+      Format.fprintf ppf "@;%d %d %a" i j (pp_value field) x
+    else
+      failwith "too many elements"
+  );
+  if !ct < expected then failwith "too few elements";
+  Format.fprintf ppf "@]"
+
+(* TODO handle symmetries *)
+let output_sparse field rows columns comments ppf l =
+  output_sparse_s field rows columns comments (List.length l) ppf (Stream.of_list l)
