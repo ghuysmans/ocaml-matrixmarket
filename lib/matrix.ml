@@ -332,3 +332,49 @@ let parse ch =
       )
     in
     W {kind; rows; columns; data}, comments
+
+
+let pp_value : type a. a field -> Format.formatter -> a -> unit = fun f ppf x ->
+  match f with
+  | Complex -> Format.fprintf ppf "%f\t%f" x.re x.im
+  | Integer -> Format.fprintf ppf "%d" x
+  | Real -> Format.fprintf ppf "%f" x
+  | Pattern -> failwith "no dense output for patterns" (* FIXME type *)
+
+let pp_field : type a. Format.formatter -> a field -> unit = fun ppf f ->
+  Format.pp_print_string ppf (
+    match f with
+    | Complex -> "complex"
+    | Integer -> "integer"
+    | Pattern -> "pattern"
+    | Real -> "real"
+  )
+
+let pp_symmetry : type a. Format.formatter -> a symmetry -> unit = fun ppf s ->
+  Format.pp_print_string ppf (
+    match s with
+    | General -> "general"
+    | Symmetric -> "symmetric"
+    | Hermitian -> "hermitian"
+    | Skew_symmetric -> "skew-symmetric"
+  )
+
+let output_dense kind get rows columns comments ppf m =
+  let _ = expected_array_length rows columns kind.symmetry in (* test! *)
+  Format.fprintf ppf "@[<v>%%%%MatrixMarket matrix array %a %a"
+    pp_field kind.field
+    pp_symmetry kind.symmetry;
+  comments |> List.iter (fun c -> Format.fprintf ppf "@;%%%s" c);
+  Format.fprintf ppf "@;%d %d" rows columns;
+  for j = 1 to columns do
+    for i = 1 to rows do
+      if i >= first_for_symmetry ~j kind.symmetry then
+        let x = get m i j in
+        if kind.symmetry = General ||
+           get m j i = get_symmetric kind.field x kind.symmetry then
+          Format.fprintf ppf "@;%a" (pp_value kind.field) x
+        else
+          failwith "symmetry violation"
+    done
+  done;
+  Format.fprintf ppf "@]"
