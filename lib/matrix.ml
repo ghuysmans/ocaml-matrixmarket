@@ -41,17 +41,26 @@ let zero : type a. a field -> a = function
   | Pattern -> false
   | Real -> 0.
 
-let neg : type a. a field -> a -> a = function
-  | Complex -> Complex.neg
-  | Integer -> (~-)
-  | Pattern -> (not)
-  | Real -> (~-.)
+let get_symmetric : type a. a field -> a -> a symmetry -> a = fun f x -> function
+  | General | Symmetric -> x
+  | Hermitian -> Complex.conj x
+  | Skew_symmetric ->
+    match f with
+    | Complex -> Complex.neg x
+    | Integer -> -x
+    | Pattern -> not x
+    | Real -> -. x
 
 module type S = sig
   type 'a t
   val make : int -> int -> 'a -> 'a t
   val set : 'a t -> int -> int -> 'a -> unit
 end
+
+let first_for_symmetry : type a. j:int -> a symmetry -> int = fun ~j -> function
+  | General -> 1
+  | Skew_symmetric -> j + 1
+  | _ -> j
 
 module Make (M : S) = struct
   let build : type typ data. (typ, data) description -> typ M.t = fun t ->
@@ -60,30 +69,21 @@ module Make (M : S) = struct
       M.set m i j x;
       match t.kind.symmetry with
       | General -> ()
-      | Hermitian -> M.set m j i (Complex.conj x)
-      | Symmetric -> M.set m j i x
-      | Skew_symmetric -> M.set m j i (neg t.kind.field x)
+      | sym -> M.set m j i (get_symmetric t.kind.field x sym)
     in
     match t.kind.format with
     | Coordinate ->
       t.data |> List.iter (fun (i, j, x) -> put i j x);
       m
     | Array ->
-      match t.kind.symmetry with
-      | General ->
-        t.data |> Array.iteri (fun index x ->
-          M.set m (index mod t.rows + 1) (index / t.rows + 1) x
-        );
-        m
-      | _ ->
-        let pos = ref 0 in
-        for j = 1 to t.columns do
-          for i = j + if t.kind.symmetry = Skew_symmetric then 1 else 0 to t.rows do
-            put i j t.data.(!pos);
-            incr pos
-          done
-        done;
-        m
+      let pos = ref 0 in
+      for j = 1 to t.columns do
+        for i = first_for_symmetry ~j t.kind.symmetry to t.rows do
+          put i j t.data.(!pos);
+          incr pos
+        done
+      done;
+      m
 end
 
 module A = Make (struct
