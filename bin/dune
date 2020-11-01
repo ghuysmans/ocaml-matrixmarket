@@ -1,1 +1,2 @@
-(executable (name parse) (libraries matrixmarket))
+(executable (name parse) (libraries matrixmarket) (modules parse))
+(executable (name export) (libraries matrixmarket_graph) (modules export))
