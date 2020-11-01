@@ -314,7 +314,7 @@ let parse ch =
   | Coordinate ->
     let rows, columns, n_entries = Scanf.sscanf l "%d %d %d" (fun x y z -> x, y, z) in
     let rec read data = function
-      | 0 -> W {kind; rows; columns; data}, comments
+      | 0 -> W {kind; rows; columns; data = List.rev data}, comments
       | n ->
         let l = String.trim (input_line ch) in
         if l = "" then
