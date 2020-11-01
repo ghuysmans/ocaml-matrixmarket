@@ -11,7 +11,7 @@ let () =
        Format.printf "%a@." (output_dense d.kind get d.rows d.columns comments) a
      | Coordinate ->
        Format.printf "%a@."
-         (output_sparse_s d.kind.field d.rows d.columns comments (List.length d.data))
+         (output_sparse_s d.kind.field d.kind.symmetry d.rows d.columns comments (List.length d.data))
          (Stream.of_list d.data))
   | [| _ |] ->
     parse stdin |> fun (W description, comments) ->

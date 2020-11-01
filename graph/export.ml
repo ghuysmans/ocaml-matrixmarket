@@ -48,5 +48,8 @@ module Make (G : Graph.Sig.G) = struct
           f pos
         )
     in
-    Matrixmarket.output_sparse_s field n n comments n' ppf (Stream.from f)
+    if G.is_directed then
+      Matrixmarket.output_sparse_s field General n n comments n' ppf (Stream.from f)
+    else
+      Matrixmarket.output_sparse_s field Symmetric n n comments n' ppf (Stream.from f)
 end
