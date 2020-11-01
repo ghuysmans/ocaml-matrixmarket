@@ -1,4 +1,4 @@
-open Matrixmarket.Matrix
+open Matrixmarket
 
 let () =
   match Sys.argv with
