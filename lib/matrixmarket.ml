@@ -377,14 +377,13 @@ let output_dense kind get rows columns comments ppf m =
   comments |> List.iter (fun c -> Format.fprintf ppf "@;%%%s" c);
   Format.fprintf ppf "@;%d %d" rows columns;
   for j = 1 to columns do
-    for i = 1 to rows do
-      if i >= first_for_symmetry ~j kind.symmetry then
-        let x = get m i j in
-        if kind.symmetry = General ||
-           get m j i = get_symmetric kind.field x kind.symmetry then
-          Format.fprintf ppf "@;%a" (pp_a_value kind.field) x
-        else
-          failwith "symmetry violation"
+    for i = first_for_symmetry ~j kind.symmetry to rows do
+      let x = get m i j in
+      if kind.symmetry = General ||
+         get m j i = get_symmetric kind.field x kind.symmetry then
+        Format.fprintf ppf "@;%a" (pp_a_value kind.field) x
+      else
+        failwith "symmetry violation"
     done
   done;
   Format.fprintf ppf "@]"
