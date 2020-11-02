@@ -1,0 +1,2 @@
+(executable (name to_csv) (libraries matrixmarket))
+(cram (deps to_csv.exe ex1.mm ex2.mm ex3.mm))
