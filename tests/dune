@@ -1,2 +1,3 @@
-(executable (name to_csv) (libraries matrixmarket))
-(cram (deps to_csv.exe ex1.mm ex2.mm ex3.mm))
+(executable (name to_csv) (libraries matrixmarket) (modules to_csv))
+(executable (name export) (libraries matrixmarket_graph) (modules export))
+(cram (deps to_csv.exe ex1.mm ex2.mm ex3.mm export.exe))
