@@ -15,8 +15,7 @@ module Make (G : Graph.Sig.G) = struct
     in
     h, a
 
-  let output_dense kind comments ppf g =
-    let _, a = index g in
+  let output_dense kind comments ppf (g, a) =
     let get g i j =
       try
         G.E.label (G.find_edge g a.(i) a.(j))
@@ -26,8 +25,7 @@ module Make (G : Graph.Sig.G) = struct
     let n = G.nb_vertex g in
     Matrixmarket.output_dense kind get n n comments ppf g
 
-  let output_sparse field comments ppf g =
-    let h, a = index g in
+  let output_sparse field comments ppf (g, h, a) =
     let n, n' = G.nb_vertex g, G.nb_edges g in
     let s = ref (0, G.succ_e g a.(0)) in
     let rec f pos =
