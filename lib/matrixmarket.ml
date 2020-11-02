@@ -1,54 +1,54 @@
-type ('typ, 'data) format =
-  | Coordinate : ('typ, (int * int * 'typ) list) format
-  | Array : ('typ, 'typ array) format
+type ('c, 'a, 'data) format =
+  | Coordinate : ('c, 'a, (int * int * 'c) list) format
+  | Array : ('c, 'a, 'a array) format
 
-type 'a field =
-  | Complex : Complex.t field
-  | Integer : int field
-  | Pattern : bool field
-  | Real : float field
+type bot (* FIXME switch to OCaml 4.07 *)
 
-let string_of_value : type a. a field -> a -> string = function
+type ('c, 'a) field =
+  | Complex : (Complex.t, Complex.t) field
+  | Integer : (int, int) field
+  | Pattern : (_, bot) field
+  | Real : (float, float) field
+
+let string_of_value : type c a. (c, a) field -> a -> string = function
   | Complex -> fun Complex.{re; im} -> Printf.sprintf "%f + %fi" re im
   | Integer -> string_of_int
   | Real -> string_of_float
-  | Pattern -> function
-    | false -> " "
-    | true -> "*"
+  | Pattern -> assert false (* FIXME *)
 
-type 'typ symmetry =
-  | General : 'typ symmetry
-  | Symmetric : 'typ symmetry
+type 'a symmetry =
+  | General : 'a symmetry
+  | Symmetric : 'a symmetry
   | Hermitian : Complex.t symmetry
-  | Skew_symmetric : 'typ symmetry
+  | Skew_symmetric : 'a symmetry
 
-type ('typ, 'data) kind = {
-  format: ('typ, 'data) format;
-  field: 'typ field;
-  symmetry: 'typ symmetry;
+type ('c, 'a, 'data) kind = {
+  format: ('c, 'a, 'data) format;
+  field: ('c, 'a) field;
+  symmetry: 'a symmetry;
 }
 
-type ('typ, 'data) description = {
-  kind: ('typ, 'data) kind;
+type ('c, 'a, 'data) description = {
+  kind: ('c, 'a, 'data) kind;
   rows: int;
   columns: int;
   data: 'data;
 }
 
-let zero : type a. a field -> a = function
+let zero : type c a. (c, a) field -> a = function
   | Complex -> Complex.zero
   | Integer -> 0
-  | Pattern -> false
+  | Pattern -> assert false (* FIXME *)
   | Real -> 0.
 
-let get_symmetric : type a. a field -> a -> a symmetry -> a = fun f x -> function
+let get_symmetric : type c a. (c, a) field -> a -> a symmetry -> a = fun f x -> function
   | General | Symmetric -> x
   | Hermitian -> Complex.conj x
   | Skew_symmetric ->
     match f with
     | Complex -> Complex.neg x
     | Integer -> -x
-    | Pattern -> not x
+    | Pattern -> assert false (* FIXME *)
     | Real -> -. x
 
 module type S = sig
@@ -62,8 +62,15 @@ let first_for_symmetry : type a. j:int -> a symmetry -> int = fun ~j -> function
   | Skew_symmetric -> j + 1
   | _ -> j
 
+let a_of_c : type c a data. (c, a, data) kind -> c -> a = fun k x ->
+  match k.field with
+  | Complex -> x
+  | Integer -> x
+  | Pattern -> assert false (* FIXME *)
+  | Real -> x
+
 module Make (M : S) = struct
-  let build : type typ data. (typ, data) description -> typ M.t = fun t ->
+  let build : type c a data. (c, a, data) description -> a M.t = fun t ->
     let m = M.make t.rows t.columns (zero t.kind.field) in
     let put i j x =
       M.set m i j x;
@@ -73,7 +80,7 @@ module Make (M : S) = struct
     in
     match t.kind.format with
     | Coordinate ->
-      t.data |> List.iter (fun (i, j, x) -> put i j x);
+      t.data |> List.iter (fun (i, j, x) -> put i j (a_of_c t.kind x));
       m
     | Array ->
       let pos = ref 0 in
@@ -217,18 +224,18 @@ let%test_module _ = (module struct
 end)
 
 
-let parse_coordinate : type a. string -> a field -> int * int * a = fun s -> function
+let parse_coordinate : type c a. string -> (c, a) field -> int * int * c = fun s -> function
   | Complex -> Scanf.sscanf s "%d %d %f %f" (fun i j re im -> i, j, Complex.{re; im})
   | Integer -> Scanf.sscanf s "%d %d %d" (fun i j x -> i, j, x)
   | Real -> Scanf.sscanf s "%d %d %f" (fun i j x -> i, j, x)
-  | Pattern -> Scanf.sscanf s "%d %d" (fun i j -> i, j, true)
+  | Pattern -> Scanf.sscanf s "%d %d" (fun i j -> i, j, Obj.magic ()) (* can't be read anyway *)
 
 (* FIXME compose scanf? *)
-let parse_value : type a. string -> a field -> a = fun s -> function
+let parse_value : type c a. string -> (c, a) field -> a = fun s -> function
   | Complex -> Scanf.sscanf s "%f %f" (fun re im -> Complex.{re; im})
   | Integer -> Scanf.sscanf s "%d" (fun x -> x)
   | Real -> Scanf.sscanf s "%f" (fun x -> x)
-  | Pattern -> failwith "unsupported pattern array"
+  | Pattern -> assert false (* FIXME *)
 
 let expected_array_length : type a. int -> int -> a symmetry -> int = fun r c -> function
   | General -> r * c
@@ -236,7 +243,7 @@ let expected_array_length : type a. int -> int -> a symmetry -> int = fun r c ->
   | Skew_symmetric -> r * (r - 1) / 2
   | _ -> r * (r + 1) / 2
 
-type k = K : ('typ, 'data) kind -> k
+type k = K : ('c, 'a, 'data) kind -> k
 
 (*
 FIXME I'd like to encode this, maybe polymorphic variants would make it shorter?
@@ -296,7 +303,7 @@ let parse_kind l =
       failwith @@ Printf.sprintf "unsupported format: %s %s %s" f t s
   )
 
-type w = W : ('typ, 'data) description -> w
+type w = W : ('c, 'a, 'data) description -> w
 
 let parse ch =
   let K kind = parse_kind (input_line ch) in
@@ -334,14 +341,17 @@ let parse ch =
     W {kind; rows; columns; data}, comments
 
 
-let pp_value : type a. a field -> Format.formatter -> a -> unit = fun f ppf x ->
+let pp_a_value : type c a. (c, a) field -> Format.formatter -> a -> unit = fun f ppf x ->
   match f with
   | Complex -> Format.fprintf ppf "%f\t%f" x.re x.im
   | Integer -> Format.fprintf ppf "%d" x
   | Real -> Format.fprintf ppf "%f" x
-  | Pattern -> failwith "no dense output for patterns" (* FIXME type *)
+  | Pattern -> assert false (* FIXME *)
 
-let pp_field : type a. Format.formatter -> a field -> unit = fun ppf f ->
+let pp_c_value : type c a data. (c, a, data) kind -> Format.formatter -> c -> unit = fun k ppf x ->
+  pp_a_value k.field ppf (a_of_c k x)
+
+let pp_field : type c a. Format.formatter -> (c, a) field -> unit = fun ppf f ->
   Format.pp_print_string ppf (
     match f with
     | Complex -> "complex"
@@ -372,25 +382,29 @@ let output_dense kind get rows columns comments ppf m =
         let x = get m i j in
         if kind.symmetry = General ||
            get m j i = get_symmetric kind.field x kind.symmetry then
-          Format.fprintf ppf "@;%a" (pp_value kind.field) x
+          Format.fprintf ppf "@;%a" (pp_a_value kind.field) x
         else
           failwith "symmetry violation"
     done
   done;
   Format.fprintf ppf "@]"
 
-let output_sparse_s field symmetry rows columns comments expected ppf s =
+let output_sparse_s : type c a. (c, a) field -> a symmetry -> int -> int -> string list -> int -> Format.formatter -> (int * int * c) Stream.t -> unit =
+fun field symmetry rows columns comments expected ppf s ->
+  let kind = {format = Coordinate; field; symmetry} in
   Format.fprintf ppf "@[<v>%%%%MatrixMarket matrix coordinate %a %a"
     pp_field field
     pp_symmetry symmetry;
   comments |> List.iter (fun c -> Format.fprintf ppf "@;%%%s" c);
   Format.fprintf ppf "@;%d %d %d" rows columns expected;
   let ct = ref 0 in
-  s |> Stream.iter (fun (i, j, x) ->
+  s |> Stream.iter (fun (i, j, (x : c)) ->
     incr ct;
     if !ct <= expected then
       if i >= first_for_symmetry ~j symmetry then
-        Format.fprintf ppf "@;%d %d %a" i j (pp_value field) x
+        match field with
+        | Pattern -> Format.fprintf ppf "@;%d %d" i j
+        | _ -> Format.fprintf ppf "@;%d %d %a" i j (pp_c_value kind) x
       else
         failwith "unnecessary symmetric value"
     else
